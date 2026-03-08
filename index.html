@@ -70,7 +70,7 @@
 
             try {
                 const search_params = new URLSearchParams({
-                    "amount": amount_value,
+                    "conv_amount": amount_value,
                     "from_currency": from_currency,
                     "conv_currency": conv_currency,
                     "date": date,
@@ -80,7 +80,7 @@
 
                 const result = await resp.json();
 
-                conv_amount.textContent = truncate_number(result['rate'], 4)
+                conv_amount.textContent = truncate_number(result['conv_amount'], 4)
             } catch (err) { console.error(err); }
         };
 
