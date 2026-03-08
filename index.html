@@ -44,6 +44,19 @@
             return truncated;
         }
 
+        function updateDisabledOptions() {
+            const fromValue = currency_from_list.value;
+            const convValue = currency_conv_list.value;
+
+            Array.from(currency_conv_list.options).forEach(option => {
+                option.disabled = (option.value === fromValue);
+            });
+
+            Array.from(currency_from_list.options).forEach(option => {
+                option.disabled = (option.value === convValue);
+            });
+        };
+
         async function convert() {
             const from_currency = currency_from_list.value;
             const conv_currency = currency_conv_list.value;
@@ -52,6 +65,8 @@
             if (!amount_value || amount_value <= 0) return;
 
             const date = new Date().toISOString().substring(0, 10); 
+
+            updateDisabledOptions();
 
             try {
                 const search_params = new URLSearchParams({
