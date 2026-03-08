@@ -7,10 +7,10 @@
     <body>
         <span>
             <input value="1" type="text" id="currency_amount">
-            <select id="currency-select"></select>
+            <select id="currency_from"></select>
             <a>=</a>
             <a id="conv_amount"></a>
-            <a id="conv_currency"></a>
+            <select id="currency_conv"></select>
         </span>
     <script>
         async function getCurrency() {
@@ -25,14 +25,18 @@
                 const fiat = currency?.['fiat'] ? currency['fiat'] : null;
 
                 const currency_list = [...(crypto || []), ...(fiat || [])];
-                const currency_select_list = document.getElementById("currency-select");
+                const currency_from_list = document.getElementById("currency_from");
+                const currency_conv_list = document.getElementById("currency_conv");
 
                 currency_list.forEach(item => {
-                    const opt = document.createElement('option');
-                    opt.value = item;
-                    opt.textContent = item;
-                    currency_select_list.appendChild(opt);
-                });         
+                    const currency_from_opt = new Option(item, item)
+                    const currency_conv_opt = new Option(item, item)
+
+                    currency_from_list.add(currency_from_opt)
+                    currency_conv_list.add(currency_conv_opt)
+                });
+                currency_from_list.value = 'USD';
+                currency_conv_list.value = 'RUB';
             } catch (err) { console.error(err.message) }
         }
 
