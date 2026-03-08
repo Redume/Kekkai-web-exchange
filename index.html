@@ -6,7 +6,7 @@
     </head>
     <body>
         <span>
-            <input value="1" type="text" id="currency_amount">
+            <input value="1" type="number" id="currency_amount">
             <select id="currency_from"></select>
             <a>=</a>
             <a id="conv_amount"></a>
@@ -19,10 +19,55 @@
         }
     </script>
     <script>
-        async function getCurrency() {
-            const apiUrl = localStorage.getItem("api_url");
+        const currency_from_list = document.getElementById("currency_from");
+        const currency_conv_list = document.getElementById("currency_conv");
+        const amount_text = document.getElementById("currency_amount");
+        const result_display = document.getElementById("currency_conv");
+
+        const api_url = localStorage.getItem("api_url");
+
+        function truncate_number(value, decimals) {
+            const valueStr = value.toString();
+            const dotIndex = valueStr.indexOf('.');
+            if (dotIndex === -1) return valueStr;
+            const desiredLength = dotIndex + decimals + 1;
+            let truncated = valueStr.slice(0, desiredLength);
+
+            if (parseFloat(truncated) === 0 && value > 0) {
+                return valueStr;
+            }
+            return truncated;
+        }
+
+        async function convert() {
+            const from_currency = currency_from_list.value;
+            const conv_currency = currency_conv_list.value;
+            const amount_value = amount_text.value;
+
+            if (!amount_value || amount_value <= 0) return;
+
+            const date = new Date().toISOString().substring(0, 10); 
+
             try {
-                const resp = await fetch(`${apiUrl}/api/metadata`)
+                const search_params = new URLSearchParams({
+                    "amount": amount_value,
+                    "from_currency": from_currency,
+                    "conv_currency": conv_currency,
+                    "date": date,
+                });
+                const resp = await fetch(`${api_url}/api/getRate/?${search_params.toString()}`);
+                if (!resp.ok) throw new Error(resp);
+
+                const result = await resp.json();
+                console.log(result)
+
+                conv_amount.textContent = truncate_number(result['rate'], 4)
+            } catch (err) { console.error(err); }
+        };
+
+        async function getCurrency() {
+            try {
+                const resp = await fetch(`${api_url}/api/metadata`)
                 if (!resp.ok) throw new Error(resp);
 
                 const result = await resp.json();
@@ -32,23 +77,26 @@
                 const fiat = currency?.['fiat'] ? currency['fiat'] : null;
 
                 const currency_list = [...(crypto || []), ...(fiat || [])];
-                const currency_from_list = document.getElementById("currency_from");
-                const currency_conv_list = document.getElementById("currency_conv");
 
                 currency_list.forEach(item => {
-                    const currency_from_opt = new Option(item, item)
-                    const currency_conv_opt = new Option(item, item)
+                    const currency_from_opt = new Option(item, item);
+                    const currency_conv_opt = new Option(item, item);
 
-                    currency_from_list.add(currency_from_opt)
-                    currency_conv_list.add(currency_conv_opt)
+                    currency_from_list.add(currency_from_opt);
+                    currency_conv_list.add(currency_conv_opt);
                 });
                 currency_from_list.value = 'USD';
                 currency_conv_list.value = 'RUB';
-            } catch (err) { console.error(err.message) }
+            } catch (err) { console.error(err.message); }
         }
 
-        document.addEventListener('DOMContentLoaded', function() {
-            getCurrency();
+        amount_text.addEventListener('input', convert);
+        currency_conv_list.addEventListener('change', convert);
+        currency_from_list.addEventListener('change', convert);
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            await getCurrency();
+            await convert()
         });
     </script>
     </body>
