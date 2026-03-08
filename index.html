@@ -5,6 +5,40 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
     </head>
     <body>
-        
+        <span>
+            <input value="1" type="text" id="currency_amount">
+            <select id="currency-select"></select>
+            <a>=</a>
+            <a id="conv_amount"></a>
+            <a id="conv_currency"></a>
+        </span>
+    <script>
+        async function getCurrency() {
+            try {
+                const resp = await fetch("https://kekkai.redume.su/api/metadata")
+                if (!resp.ok) throw new Error(resp);
+
+                const result = await resp.json();
+                const currency = result['currencies'];
+
+                const crypto = currency?.['crypto'] ? currency['crypto'] : null;
+                const fiat = currency?.['fiat'] ? currency['fiat'] : null;
+
+                const currency_list = [...(crypto || []), ...(fiat || [])];
+                const currency_select_list = document.getElementById("currency-select");
+
+                currency_list.forEach(item => {
+                    const opt = document.createElement('option');
+                    opt.value = item;
+                    opt.textContent = item;
+                    currency_select_list.appendChild(opt);
+                });         
+            } catch (err) { console.error(err.message) }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            getCurrency();
+        });
+    </script>
     </body>
 </html>
