@@ -13,9 +13,16 @@
             <select id="currency_conv"></select>
         </span>
     <script>
+        const defaultApiUrl = "https://kekkai.redume.su";
+        if (!localStorage.getItem("api_url")) {
+            localStorage.setItem("api_url", defaultApiUrl);
+        }
+    </script>
+    <script>
         async function getCurrency() {
+            const apiUrl = localStorage.getItem("api_url");
             try {
-                const resp = await fetch("https://kekkai.redume.su/api/metadata")
+                const resp = await fetch(`${apiUrl}/api/metadata`)
                 if (!resp.ok) throw new Error(resp);
 
                 const result = await resp.json();
