@@ -61,27 +61,41 @@
             const from_currency = currency_from_list.value;
             const conv_currency = currency_conv_list.value;
             const amount_value = amount_text.value;
-
+            const date = new Date();
+            
             if (!amount_value || amount_value <= 0) return;
 
-            const date = new Date().toISOString().substring(0, 10); 
+            const attempts = 0;
+            const max_attempts = 7;
+            const success = false;
 
             updateDisabledOptions();
 
-            try {
-                const search_params = new URLSearchParams({
-                    "conv_amount": amount_value,
-                    "from_currency": from_currency,
-                    "conv_currency": conv_currency,
-                    "date": date,
-                });
-                const resp = await fetch(`${api_url}/api/getRate/?${search_params.toString()}`);
-                if (!resp.ok) throw new Error(resp);
+            while (!success && attempts < max_attempts) {
+                const date_string = date.toISOString().substring(0, 10);
+                try {
+                    const search_params = new URLSearchParams({
+                        "conv_amount": amount_value,
+                        "from_currency": from_currency,
+                        "conv_currency": conv_currency,
+                        "date": date_string,
+                    });
+                    const resp = await fetch(`${api_url}/api/getRate/?${search_params.toString()}`);
+                    if (resp.ok) {
+                        const result = await resp.json();
+                        conv_amount.textContent = truncate_number(result['conv_amount'], 4);
+                    } else if (resp.status === 400) {
+                        console.warn(`Data for ${date} missing, trying the prev day`);
 
-                const result = await resp.json();
-
-                conv_amount.textContent = truncate_number(result['conv_amount'], 4)
-            } catch (err) { console.error(err); }
+                        date.setDate(date.getDate() - 1);
+                        attempts++;
+                    } else {
+                        throw new Error(resp)
+                    }
+                } catch (err) { console.error(err); break; }
+            }
+            
+            if (!success) { conv_amount.textContent = '?'}
         };
 
         async function getCurrency() {
