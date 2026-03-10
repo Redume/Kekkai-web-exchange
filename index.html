@@ -8,15 +8,29 @@
         <link rel="icon" type="image/png" href="./assets/logo.png"/>
 
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+            body {
+                color: white;
+                background: #4F5574;
+                font: medium "Gotham Pro", sans-serif;
+            }
+
+            #convert {
+                display: flex;
+                justify-content: center;
+            }
+        </style>
     </head>
     <body>
-        <span>
-            <input value="1" type="number" min="1" id="currency_amount">
-            <select id="currency_from"></select>
-            <a>=</a>
-            <a id="conv_amount"></a>
-            <select id="currency_conv"></select>
-        </span>
+        <div id="convert">
+            <span>
+                <input value="1" type="number" min="1" id="currency_amount">
+                <select id="currency_from"></select>
+                <a>=</a>
+                <a id="conv_amount"></a>
+                <select id="currency_conv"></select>
+            </span>
+        </div>
     <script>
         const defaultApiUrl = "https://kekkai.redume.su";
         if (!localStorage.getItem("api_url")) {
