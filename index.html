@@ -31,6 +31,8 @@
 
         const api_url = localStorage.getItem("api_url");
 
+        let abortController;
+
         function truncate_number(value, decimals) {
             const valueStr = value.toString();
             const dotIndex = valueStr.indexOf('.');
@@ -62,12 +64,18 @@
             const conv_currency = currency_conv_list.value;
             const amount_value = amount_text.value;
             const date = new Date();
+
+            if (abortController) {
+                abortController.abort();
+            }
+
+            abortController = new AbortController();
             
             if (!amount_value || amount_value <= 0) return;
 
             let attempts = 0;
             const max_attempts = 7;
-            const success = false;
+            let success = false;
 
             updateDisabledOptions();
 
@@ -80,7 +88,9 @@
                         "conv_currency": conv_currency,
                         "date": date_string,
                     });
-                    const resp = await fetch(`${api_url}/api/getRate/?${search_params.toString()}`);
+                    const resp = await fetch(`${api_url}/api/getRate/?${search_params.toString()}`, {
+                        signal: abortController.signal,
+                    });
                     if (resp.ok) {
                         const result = await resp.json();
                         conv_amount.textContent = truncate_number(result['conv_amount'], 4);
