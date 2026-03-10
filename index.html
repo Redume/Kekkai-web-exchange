@@ -55,8 +55,6 @@
 
         const api_url = localStorage.getItem("api_url");
 
-        let abortController;
-
         function truncate_number(value, decimals) {
             const valueStr = value.toString();
             const dotIndex = valueStr.indexOf('.');
@@ -83,15 +81,15 @@
             });
         };
 
+        let abortController;
+
         async function convert() {
             const from_currency = currency_from_list.value;
             const conv_currency = currency_conv_list.value;
             const amount_value = amount_text.value;
             const date = new Date();
 
-            if (abortController) {
-                abortController.abort();
-            }
+            if (abortController) abortController.abort();
 
             abortController = new AbortController();
             
@@ -118,6 +116,7 @@
                     if (resp.ok) {
                         const result = await resp.json();
                         conv_amount.textContent = truncate_number(result['conv_amount'], 4);
+                        success = true;
                     } else if (resp.status === 400) {
                         console.warn(`Data for ${date} missing, trying the prev day`);
 
@@ -129,7 +128,7 @@
                 } catch (err) { console.error(err); break; }
             }
             
-            if (!success) { conv_amount.textContent = '?'}
+            if (!success) conv_amount.textContent = '?'
         };
 
         async function getCurrency() {
