@@ -83,6 +83,7 @@
                 const amount_text = document.getElementById("currency_amount");
                 const conv_amount_display = document.getElementById("conv_amount");
 
+                const cache_time = 2 * 60 * 60 * 1000; //2h
                 let abortController;
 
                 function truncate_number(value, decimals) {
@@ -119,20 +120,30 @@
                     const from_currency = currency_from_list.value;
                     const conv_currency = currency_conv_list.value;
                     const amount_value = amount_text.value;
-                    const date = new Date();
+                    const now = Date.now();
 
                     if (abortController) abortController.abort();
                     abortController = new AbortController();
                     
                     if (!amount_value || amount_value <= 0) return;
 
-                    let attempts = 0;
-                    const max_attempts = 7;
-                    let success = false;
-
                     updateDisabledOptions();
                     localStorage.setItem("last_from", from_currency);
                     localStorage.setItem("last_conv", conv_currency);
+
+                    const cacheKey = `${from_currency}-${conv_currency}-${amount_value}`;
+                    const cachedData = JSON.parse(localStorage.getItem("conversion_cache") || "{}");
+
+                    if (cachedData[cacheKey] && (now - cachedData[cacheKey].timestamp < cache_time)) {
+                        conv_amount_display.textContent = cachedData[cacheKey].result;
+                        button_graph.disabled = false;
+                        return;
+                    }
+
+                    let attempts = 0;
+                    const max_attempts = 7;
+                    let success = false;
+                    let date = new Date();
 
                     while (!success && attempts < max_attempts) {
                         const date_string = date.toISOString().substring(0, 10);
@@ -148,7 +159,13 @@
                             });
                             if (resp.ok) {
                                 const result = await resp.json();
-                                conv_amount_display.textContent = truncate_number(result['conv_amount'], 4);
+                                const finalValue = truncate_number(result['conv_amount'], 4);
+                                conv_amount_display.textContent = finalValue;
+                                
+                                const newCache = JSON.parse(localStorage.getItem("conversion_cache") || "{}");
+                                newCache[cacheKey] = { result: finalValue, timestamp: now };
+                                localStorage.setItem("conversion_cache", JSON.stringify(newCache));
+                                
                                 button_graph.disabled = false;
                                 success = true;
                             } else if (resp.status === 400) {
@@ -172,13 +189,11 @@
                     const cached = localStorage.getItem("currency_list");
                     const lastUpdate = localStorage.getItem("currency_last_update");
                     const now = Date.now();
-                    const time_update = 2 * 60 * 60 * 1000; // 2h
 
                     if (cached) {
                         renderOptions(JSON.parse(cached));
                         button_graph.disabled = false;
-
-                        if (lastUpdate && (now - lastUpdate < time_update)) return;
+                        if (lastUpdate && (now - lastUpdate < cache_time)) return;
                     }
 
                     try {
