@@ -73,8 +73,10 @@
             </div>
     <script>
         const api_url = localStorage.getItem("api_url");
+        const chart_backend = localStorage.getItem("backend_chart");
         const defaultApiUrl = "https://kekkai.redume.su";
         if (!api_url) localStorage.setItem("api_url", defaultApiUrl);
+        if (!chart_backend) localStorage.setItem("backend_chart", "matplotlib");
     </script>
     <script defer>
         const button_graph = document.getElementById('convert-graph-button');
@@ -87,6 +89,7 @@
                 "from_currency": from_currency,
                 "conv_currency": conv_currency,
                 "period": 'month',
+                "backend": chart_backend
             });
             const graph_container = document.getElementById('convert-graph');
             const existingImg = graph_container.querySelector('img');
