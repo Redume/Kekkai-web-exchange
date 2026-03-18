@@ -71,153 +71,159 @@
                     <button id="convert-graph-button">Показать график</button>
                 </div>
             </div>
-    <script>
-        const api_url = localStorage.getItem("api_url");
-        const chart_backend = localStorage.getItem("backend_chart");
-        const defaultApiUrl = "https://kekkai.redume.su";
-        if (!api_url) localStorage.setItem("api_url", defaultApiUrl);
-        if (!chart_backend) localStorage.setItem("backend_chart", "matplotlib");
-    </script>
-    <script defer>
-        const button_graph = document.getElementById('convert-graph-button');
-        const currency_from_list = document.getElementById("currency_from");
-        const currency_conv_list = document.getElementById("currency_conv");
-        button_graph.addEventListener('click', async function() {
-            const from_currency = currency_from_list.options[currency_from_list.selectedIndex].text;
-            const conv_currency = currency_conv_list.options[currency_conv_list.selectedIndex].text;
-            const search_params = new URLSearchParams({
-                "from_currency": from_currency,
-                "conv_currency": conv_currency,
-                "period": 'month',
-                "backend": chart_backend
-            });
-            const graph_container = document.getElementById('convert-graph');
-            const existingImg = graph_container.querySelector('img');
-            if (existingImg) existingImg.remove();
-
-            const img_element = document.createElement('img');
-            img_element.src = `${api_url}/api/getChart/?${search_params.toString()}`;
-            graph_container.appendChild(img_element);
-        });
-    </script>
-    <script>
-        const amount_text = document.getElementById("currency_amount");
-        const result_display = document.getElementById("currency_conv");
-
-        function truncate_number(value, decimals) {
-            const valueStr = value.toString();
-            const dotIndex = valueStr.indexOf('.');
-            if (dotIndex === -1) return valueStr;
-            const desiredLength = dotIndex + decimals + 1;
-            let truncated = valueStr.slice(0, desiredLength);
-
-            if (parseFloat(truncated) === 0 && value > 0) {
-                return valueStr;
-            }
-            return truncated;
-        }
-
-        function updateDisabledOptions() {
-            const fromValue = currency_from_list.value;
-            const convValue = currency_conv_list.value;
-
-            Array.from(currency_conv_list.options).forEach(option => {
-                option.disabled = (option.value === fromValue);
-            });
-
-            Array.from(currency_from_list.options).forEach(option => {
-                option.disabled = (option.value === convValue);
-            });
-        };
-
-        let abortController;
-
-        async function convert() {
-            const from_currency = currency_from_list.value;
-            const conv_currency = currency_conv_list.value;
-            const amount_value = amount_text.value;
-            const date = new Date();
-
-            if (abortController) abortController.abort();
-
-            abortController = new AbortController();
+            <script>
+                const api_url = localStorage.getItem("api_url")
+                const backend_chart = localStorage.getItem("backend_chart") 
+                if (!api_url) localStorage.setItem("api_url", "https://kekkai.redume.su");
+                if (!backend_chart) localStorage.setItem("backend_chart", "matplotlib");
             
-            if (!amount_value || amount_value <= 0) return;
-
-            let attempts = 0;
-            const max_attempts = 7;
-            let success = false;
-
-            updateDisabledOptions();
-
-            while (!success && attempts < max_attempts) {
-                const date_string = date.toISOString().substring(0, 10);
-                try {
-                    const search_params = new URLSearchParams({
-                        "conv_amount": amount_value,
+                const button_graph = document.getElementById('convert-graph-button');
+                const currency_from_list = document.getElementById("currency_from");
+                const currency_conv_list = document.getElementById("currency_conv");
+                const amount_text = document.getElementById("currency_amount");
+                const conv_amount_display = document.getElementById("conv_amount");
+            
+                let abortController;
+            
+                function truncate_number(value, decimals) {
+                    const valueStr = value.toString();
+                    const dotIndex = valueStr.indexOf('.');
+                    if (dotIndex === -1) return valueStr;
+                    const desiredLength = dotIndex + decimals + 1;
+                    let truncated = valueStr.slice(0, desiredLength);
+                    if (parseFloat(truncated) === 0 && value > 0) return valueStr;
+                    return truncated;
+                }
+            
+                function updateDisabledOptions() {
+                    const fromValue = currency_from_list.value;
+                    const convValue = currency_conv_list.value;
+                    Array.from(currency_conv_list.options).forEach(opt => opt.disabled = (opt.value === fromValue));
+                    Array.from(currency_from_list.options).forEach(opt => opt.disabled = (opt.value === convValue));
+                }
+            
+                function renderOptions(list) {
+                    const currentFrom = localStorage.getItem("last_from") || 'USD';
+                    const currentConv = localStorage.getItem("last_conv") || 'RUB';
+                    
+                    currency_from_list.innerHTML = '';
+                    currency_conv_list.innerHTML = '';
+                    
+                    list.forEach(item => {
+                        currency_from_list.add(new Option(item, item));
+                        currency_conv_list.add(new Option(item, item));
+                    });
+            
+                    currency_from_list.value = list.includes(currentFrom) ? currentFrom : list[0];
+                    currency_conv_list.value = list.includes(currentConv) ? currentConv : list[1];
+                }
+            
+                async function convert() {
+                    const from_currency = currency_from_list.value;
+                    const conv_currency = currency_conv_list.value;
+                    const amount_value = amount_text.value;
+                    const date = new Date();
+            
+                    if (abortController) abortController.abort();
+                    abortController = new AbortController();
+                    
+                    if (!amount_value || amount_value <= 0) return;
+            
+                    let attempts = 0;
+                    const max_attempts = 7;
+                    let success = false;
+            
+                    updateDisabledOptions();
+                    localStorage.setItem("last_from", from_currency);
+                    localStorage.setItem("last_conv", conv_currency);
+            
+                    while (!success && attempts < max_attempts) {
+                        const date_string = date.toISOString().substring(0, 10);
+                        try {
+                            const params = new URLSearchParams({
+                                "conv_amount": amount_value,
+                                "from_currency": from_currency,
+                                "conv_currency": conv_currency,
+                                "date": date_string,
+                            });
+                            const resp = await fetch(`${api_url}/api/getRate/?${params.toString()}`, {
+                                signal: abortController.signal,
+                            });
+                            if (resp.ok) {
+                                const result = await resp.json();
+                                conv_amount_display.textContent = truncate_number(result['conv_amount'], 4);
+                                button_graph.disabled = false;
+                                success = true;
+                            } else if (resp.status === 400) {
+                                date.setDate(date.getDate() - 1);
+                                attempts++;
+                            } else {
+                                break;
+                            }
+                        } catch (err) {
+                            if (err.name === 'AbortError') return;
+                            break;
+                        }
+                    }
+                    
+                    if (!success) { 
+                        conv_amount_display.textContent = '?';
+                        button_graph.disabled = true;
+                    }
+                }
+            
+                async function getCurrency() {
+                    const cached = localStorage.getItem("currency_list");
+                    if (cached) {
+                        renderOptions(JSON.parse(cached));
+                        button_graph.disabled = false;
+                    }
+            
+                    try {
+                        const resp = await fetch(`${api_url}/api/metadata`);
+                        if (!resp.ok) throw new Error();
+                        const result = await resp.json();
+                        const list = [...(result.currencies?.crypto || []), ...(result.currencies?.fiat || [])];
+                        
+                        if (list.length > 0) {
+                            localStorage.setItem("currency_list", JSON.stringify(list));
+                            renderOptions(list);
+                            button_graph.disabled = false;
+                        }
+                    } catch (err) {
+                        if (!cached) button_graph.disabled = true;
+                    }
+                }
+            
+                button_graph.addEventListener('click', function() {
+                    const from_currency = currency_from_list.value;
+                    const conv_currency = currency_conv_list.value;
+                    const params = new URLSearchParams({
                         "from_currency": from_currency,
                         "conv_currency": conv_currency,
-                        "date": date_string,
+                        "period": 'month',
+                        "backend": backend_chart
                     });
-                    const resp = await fetch(`${api_url}/api/getRate/?${search_params.toString()}`, {
-                        signal: abortController.signal,
-                    });
-                    if (resp.ok) {
-                        const result = await resp.json();
-                        conv_amount.textContent = truncate_number(result['conv_amount'], 4);
-                        button_graph.disabled = false;
-                        success = true;
-                    } else if (resp.status === 400) {
-                        console.warn(`Data for ${date} missing, trying the prev day`);
-
-                        date.setDate(date.getDate() - 1);
-                        attempts++;
-                    } else {
-                        throw new Error(resp)
-                    }
-                } catch (err) { console.error(err); break; }
-            }
+                    
+                    const container = document.getElementById('convert-graph');
+                    const oldImg = container.querySelector('img');
+                    if (oldImg) oldImg.remove();
             
-            if (!success) { 
-                conv_amount.textContent = '?';
-                button_graph.disabled = true;
-            }
-        };
-
-        async function getCurrency() {
-            try {
-                const resp = await fetch(`${api_url}/api/metadata`)
-                if (!resp.ok) throw new Error(resp);
-
-                const result = await resp.json();
-                const currency = result['currencies'];
-
-                const crypto = currency?.['crypto'] ? currency['crypto'] : null;
-                const fiat = currency?.['fiat'] ? currency['fiat'] : null;
-
-                const currency_list = [...(crypto || []), ...(fiat || [])];
-
-                currency_list.forEach(item => {
-                    const currency_from_opt = new Option(item, item);
-                    const currency_conv_opt = new Option(item, item);
-
-                    currency_from_list.add(currency_from_opt);
-                    currency_conv_list.add(currency_conv_opt);
+                    const img = document.createElement('img');
+                    img.src = `${api_url}/api/getChart/?${params.toString()}`;
+                    img.style.maxWidth = "100%";
+                    img.style.marginTop = "20px";
+                    container.appendChild(img);
                 });
-                currency_from_list.value = 'USD';
-                currency_conv_list.value = 'RUB';
-                button_graph.disabled = false;
-            } catch (err) { console.error(err.message); button_graph.disabled = true; }
-        }
-
-        amount_text.addEventListener('input', convert);
-        currency_conv_list.addEventListener('change', convert);
-        currency_from_list.addEventListener('change', convert);
-
-        document.addEventListener('DOMContentLoaded', async function() {
-            await getCurrency();
-            await convert()
-        });
-    </script>
+            
+                amount_text.addEventListener('input', convert);
+                currency_conv_list.addEventListener('change', convert);
+                currency_from_list.addEventListener('change', convert);
+            
+                document.addEventListener('DOMContentLoaded', async () => {
+                    await getCurrency();
+                    await convert();
+                });
+            </script>
     </body>
 </html>
