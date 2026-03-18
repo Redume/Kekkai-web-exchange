@@ -15,9 +15,36 @@
                 font: medium "Gotham Pro", sans-serif;
             }
 
-            #convert {
+            #convert, #convert-graph {
                 display: flex;
                 justify-content: center;
+            }
+
+            #convert {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 20px;
+                margin-top: 5%;
+            }
+
+            .converter-inputs {
+                display: flex;
+                align-items: center;
+                gap: 10px; 
+            }
+
+            #convert-graph {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                width: 100%;
+            }
+
+            #convert-graph img {
+                margin-top: 20px;
+                max-width: 50%;
+                height: auto;
             }
 
             input[type=number] {
@@ -33,27 +60,46 @@
     </head>
     <body>
         <div id="convert">
-            <span>
+            <div id="converter-inputs">
                 <input value="1" type="number" min="1" id="currency_amount">
                 <select id="currency_from"></select>
                 <a>=</a>
                 <a id="conv_amount"></a>
                 <select id="currency_conv"></select>
-            </span>
-        </div>
+            </div>
+                <div id="convert-graph">
+                    <button id="convert-graph-button">Показать график</button>
+                </div>
+            </div>
     <script>
+        const api_url = localStorage.getItem("api_url");
         const defaultApiUrl = "https://kekkai.redume.su";
-        if (!localStorage.getItem("api_url")) {
-            localStorage.setItem("api_url", defaultApiUrl);
-        }
+        if (!api_url) localStorage.setItem("api_url", defaultApiUrl);
     </script>
-    <script>
+    <script defer>
+        const button_graph = document.getElementById('convert-graph-button');
         const currency_from_list = document.getElementById("currency_from");
         const currency_conv_list = document.getElementById("currency_conv");
+        button_graph.addEventListener('click', async function() {
+            const from_currency = currency_from_list.options[currency_from_list.selectedIndex].text;
+            const conv_currency = currency_conv_list.options[currency_conv_list.selectedIndex].text;
+            const search_params = new URLSearchParams({
+                "from_currency": from_currency,
+                "conv_currency": conv_currency,
+                "period": 'month',
+            });
+            const graph_container = document.getElementById('convert-graph');
+            const existingImg = graph_container.querySelector('img');
+            if (existingImg) existingImg.remove();
+
+            const img_element = document.createElement('img');
+            img_element.src = `${api_url}/api/getChart/?${search_params.toString()}`;
+            graph_container.appendChild(img_element);
+        });
+    </script>
+    <script>
         const amount_text = document.getElementById("currency_amount");
         const result_display = document.getElementById("currency_conv");
-
-        const api_url = localStorage.getItem("api_url");
 
         function truncate_number(value, decimals) {
             const valueStr = value.toString();
@@ -116,6 +162,7 @@
                     if (resp.ok) {
                         const result = await resp.json();
                         conv_amount.textContent = truncate_number(result['conv_amount'], 4);
+                        button_graph.disabled = false;
                         success = true;
                     } else if (resp.status === 400) {
                         console.warn(`Data for ${date} missing, trying the prev day`);
@@ -128,7 +175,10 @@
                 } catch (err) { console.error(err); break; }
             }
             
-            if (!success) conv_amount.textContent = '?'
+            if (!success) { 
+                conv_amount.textContent = '?';
+                button_graph.disabled = true;
+            }
         };
 
         async function getCurrency() {
@@ -153,7 +203,8 @@
                 });
                 currency_from_list.value = 'USD';
                 currency_conv_list.value = 'RUB';
-            } catch (err) { console.error(err.message); }
+                button_graph.disabled = false;
+            } catch (err) { console.error(err.message); button_graph.disabled = true; }
         }
 
         amount_text.addEventListener('input', convert);
