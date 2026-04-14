@@ -56,6 +56,96 @@
                 -webkit-appearance: none;
                 margin: 0;
             }
+
+            #history-section {
+                max-width: 500px;
+                margin: 30px auto 0;
+                padding: 0 16px;
+            }
+
+            #history-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 12px;
+            }
+
+            #history-header h3 {
+                margin: 0;
+                font-size: 14px;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                opacity: 0.7;
+            }
+
+            #clear-history {
+                background: none;
+                border: 1px solid rgba(255,255,255,0.2);
+                color: rgba(255,255,255,0.5);
+                font-size: 12px;
+                padding: 4px 10px;
+                border-radius: 4px;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+
+            #clear-history:hover {
+                border-color: rgba(255,255,255,0.5);
+                color: rgba(255,255,255,0.8);
+            }
+
+            #history-list {
+                list-style: none;
+                padding: 0;
+                margin: 0;
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+            }
+
+            #history-list li {
+                background: rgba(255,255,255,0.07);
+                border-radius: 6px;
+                padding: 10px 14px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-size: 14px;
+                animation: fadeIn 0.2s ease;
+            }
+
+            #history-list li .hist-conversion {
+                flex: 1;
+            }
+
+            #history-list li .hist-time {
+                font-size: 11px;
+                opacity: 0.4;
+                margin-left: 12px;
+                white-space: nowrap;
+            }
+
+            #history-list:empty + #history-empty,
+            #history-empty {
+                display: none;
+            }
+
+            #history-list:empty ~ #history-empty {
+                display: block;
+            }
+
+            .history-empty-msg {
+                text-align: center;
+                opacity: 0.35;
+                font-size: 13px;
+                margin-top: 16px;
+            }
+
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(-4px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
         </style>
     </head>
     <body>
@@ -71,6 +161,16 @@
                     <button id="convert-graph-button">Показать график</button>
                 </div>
             </div>
+
+            <div id="history-section">
+                <div id="history-header">
+                    <h3>История конвертаций</h3>
+                    <button id="clear-history">Очистить</button>
+                </div>
+                <ul id="history-list"></ul>
+                <p class="history-empty-msg" id="history-empty">Пока нет конвертаций</p>
+            </div>
+
             <script>
                 const api_url = localStorage.getItem("api_url")
                 const backend_chart = localStorage.getItem("backend_chart") 
@@ -82,9 +182,14 @@
                 const currency_conv_list = document.getElementById("currency_conv");
                 const amount_text = document.getElementById("currency_amount");
                 const conv_amount_display = document.getElementById("conv_amount");
+                const history_list = document.getElementById("history-list");
+                const clear_history_btn = document.getElementById("clear-history");
+                const history_empty = document.getElementById("history-empty");
 
                 const cache_time = 2 * 60 * 60 * 1000; //2h
+                const MAX_HISTORY = 20;
                 let abortController;
+                let lastRecordedKey = null;
 
                 function truncate_number(value, decimals) {
                     const valueStr = value.toString();
@@ -116,6 +221,59 @@
                     currency_conv_list.value = list.includes(currentConv) ? currentConv : list[1];
                 }
 
+                function getHistory() {
+                    try {
+                        return JSON.parse(localStorage.getItem("conversion_history") || "[]");
+                    } catch { return []; }
+                }
+
+                function saveHistory(history) {
+                    localStorage.setItem("conversion_history", JSON.stringify(history));
+                }
+
+                function formatTime(ts) {
+                    const d = new Date(ts);
+                    const pad = n => String(n).padStart(2, '0');
+                    return `${pad(d.getDate())}.${pad(d.getMonth()+1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                }
+
+                function renderHistory() {
+                    const history = getHistory();
+                    history_list.innerHTML = '';
+                    history_empty.style.display = history.length === 0 ? 'block' : 'none';
+
+                    history.forEach(entry => {
+                        const li = document.createElement('li');
+                        li.innerHTML = `
+                            <span class="hist-conversion">${entry.amount} ${entry.from} = ${entry.result} ${entry.to}</span>
+                            <span class="hist-time">${formatTime(entry.timestamp)}</span>
+                        `;
+                        history_list.appendChild(li);
+                    });
+                }
+
+                function addToHistory(amount, from, result, to) {
+                    const key = `${amount}-${from}-${to}`;
+                    if (key === lastRecordedKey) return;
+                    lastRecordedKey = key;
+
+                    const history = getHistory();
+                    history.unshift({
+                        amount, from, result, to,
+                        timestamp: Date.now()
+                    });
+
+                    if (history.length > MAX_HISTORY) history.length = MAX_HISTORY;
+                    saveHistory(history);
+                    renderHistory();
+                }
+
+                clear_history_btn.addEventListener('click', () => {
+                    localStorage.removeItem("conversion_history");
+                    lastRecordedKey = null;
+                    renderHistory();
+                });
+
                 async function convert() {
                     const from_currency = currency_from_list.value;
                     const conv_currency = currency_conv_list.value;
@@ -136,6 +294,7 @@
 
                     if (cachedData[cacheKey] && (now - cachedData[cacheKey].timestamp < cache_time)) {
                         conv_amount_display.textContent = cachedData[cacheKey].result;
+                        addToHistory(amount_value, from_currency, cachedData[cacheKey].result, conv_currency);
                         button_graph.disabled = false;
                         return;
                     }
@@ -165,6 +324,8 @@
                                 const newCache = JSON.parse(localStorage.getItem("conversion_cache") || "{}");
                                 newCache[cacheKey] = { result: finalValue, timestamp: now };
                                 localStorage.setItem("conversion_cache", JSON.stringify(newCache));
+
+                                addToHistory(amount_value, from_currency, finalValue, conv_currency);
                                 
                                 button_graph.disabled = false;
                                 success = true;
@@ -233,6 +394,7 @@
                 currency_conv_list.addEventListener('change', convert);
                 currency_from_list.addEventListener('change', convert);
                 document.addEventListener('DOMContentLoaded', async () => {
+                    renderHistory();
                     await getCurrency();
                     await convert();
                 });
